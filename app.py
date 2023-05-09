@@ -259,6 +259,7 @@ def start_user_data_stream():
 
 def start_open_orders_websocket():
     def on_open(ws):
+        print("WebSocket opened")  # Debugging
         timestamp = int(datetime.now().timestamp() * 1000)
         signature_payload = f"timestamp={timestamp}"
         signature = hmac.new(api_secret.encode(), signature_payload.encode(), hashlib.sha256).hexdigest()
@@ -267,6 +268,7 @@ def start_open_orders_websocket():
         ws.send(json.dumps({"method": "SET_PROPERTY", "params": ["spot", "USER_API-SIGNATURE", signature], "id": 3}))
 
     def on_message(ws, message):
+        print(f"WebSocket message: {message}")  # Debugging
         global user_open_orders
         msg_json = json.loads(message)
         event_type = msg_json.get("e")
