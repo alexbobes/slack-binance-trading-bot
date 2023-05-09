@@ -128,9 +128,15 @@ def get_balances():
 
 @app.route('/open_orders', methods=['GET'])
 def get_open_orders():
-    open_orders_list = [{"symbol": symbol, "orderId": order_id} for symbol, order_id in user_open_orders.items()]
-    return {"open_orders": open_orders_list}
-
+    all_open_orders = {}
+    for symbol in tracked_symbols:
+        try:
+            open_orders = client.get_open_orders(symbol=symbol)
+            if open_orders:
+                all_open_orders[symbol] = [order["orderId"] for order in open_orders]
+        except BinanceAPIException as e:
+            print(f"Error fetching open orders for {symbol}: {str(e)}")
+    return all_open_orders
 
 @app.route('/cancel_order', methods=['POST'])
 def cancel_order():
@@ -259,7 +265,7 @@ def start_user_data_stream():
 
 def start_open_orders_websocket():
     def on_open(ws):
-        print("WebSocket opened")  # Debugging
+        print("WebSocket opened")
         timestamp = int(datetime.now().timestamp() * 1000)
         signature_payload = f"timestamp={timestamp}"
         signature = hmac.new(api_secret.encode(), signature_payload.encode(), hashlib.sha256).hexdigest()
@@ -268,7 +274,7 @@ def start_open_orders_websocket():
         ws.send(json.dumps({"method": "SET_PROPERTY", "params": ["spot", "USER_API-SIGNATURE", signature], "id": 3}))
 
     def on_message(ws, message):
-        print(f"WebSocket message: {message}")  # Debugging
+        print(f"Received WebSocket message: {message}")
         global user_open_orders
         msg_json = json.loads(message)
         event_type = msg_json.get("e")
@@ -279,16 +285,27 @@ def start_open_orders_websocket():
             order_status = msg_json["X"]
 
             if order_status == "NEW" or order_status == "PARTIALLY_FILLED":
-                user_open_orders[symbol] = order_id
+                if symbol not in user_open_orders:
+                    user_open_orders[symbol] = []
+                user_open_orders[symbol].append(order_id)
+                print(f"Added order {symbol}: {order_id}")
             elif order_status == "CANCELED" or order_status == "FILLED":
-                user_open_orders.pop(symbol, None)
+                if symbol in user_open_orders:
+                    if order_id in user_open_orders[symbol]:
+                        user_open_orders[symbol].remove(order_id)
+                        if not user_open_orders[symbol]:
+                            user_open_orders.pop(symbol, None)
+                    print(f"Removed order {symbol}: {order_id}")
 
-    ws = websocket.WebSocketApp(
-        "wss://stream.binance.com:9443/ws",
-        on_open=on_open,
-        on_message=on_message,
-    )
-    ws.run_forever()
+        print(f"Current open orders: {user_open_orders}")
+        
+    websocket_thread = threading.Thread(target=lambda ws_app: websocket.enableTrace(True, ws_app),
+                                    args=(websocket.WebSocketApp(f"wss://stream.binance.com:9443/ws/{listen_key}",
+                                                                 on_open=on_open,
+                                                                 on_message=on_message),))
+
+    websocket_thread.daemon = True
+    websocket_thread.start()
 
 start_user_data_stream()
 t2 = threading.Thread(target=start_open_orders_websocket)
