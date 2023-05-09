@@ -14,7 +14,7 @@ account directly through Slack commands.
 
 ## Installation
 
-1. Clone this repository: git clone https://github.com/yourusername/binance-trading-bot-for-slack.git
+1. Clone this repository: git clone https://github.com/alexbobes/slack-binance-trading-bot
 2. Install the required packages: pip install -r requirements.txt
 3. Set up environment variables in a `.env` file in the project's root directory with the following keys:
 
