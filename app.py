@@ -246,13 +246,13 @@ def handle_balances(ack, respond):
     
 @slack_app.command("/crypto_open_orders")
 def handle_open_orders(ack, respond):
-    print("Received /crypto_open_orders command")  # Add this line for debugging
     ack()
     try:
         open_orders = get_open_orders()
-        print("Fetched open orders:", open_orders)  # Add this line for debugging
-        if open_orders["open_orders"]:
-            response_text = "Open Orders:\n" + "\n".join([f"{o['symbol']}: Order ID {o['orderId']}" for o in open_orders["open_orders"]])
+        if open_orders:
+            response_text = "Open Orders:\n"
+            for symbol, order_ids in open_orders.items():
+                response_text += f"{symbol}: Order IDs {', '.join([str(order_id) for order_id in order_ids])}\n"
         else:
             response_text = "No open orders."
         response_type = "in_channel"  # Visible to everyone in the channel
